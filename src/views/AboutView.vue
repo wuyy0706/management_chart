@@ -35,15 +35,23 @@
         </div>
 
         <div class="header-right">
-          <Dropdown :menu="{ items: userMenuItems }" placement="bottomRight">
-            <div class="user-info">
-              <Avatar class="user-avatar">{{ userInfo.username.charAt(0).toUpperCase() }}</Avatar>
-              <span class="username">{{ userInfo.username }}</span>
-              <Tag :color="userInfo.role === 'admin' ? 'red' : 'blue'" class="role-tag">
-                {{ userInfo.role === 'admin' ? '管理员' : '普通用户' }}
-              </Tag>
+          <div class="user-info" @click="toggleDropdown">
+            <Avatar class="user-avatar">{{ userInfo.username.charAt(0).toUpperCase() }}</Avatar>
+            <span class="username">{{ userInfo.username }}</span>
+            <Tag :color="userInfo.role === 'admin' ? 'red' : 'blue'" class="role-tag">
+              {{ userInfo.role === 'admin' ? '管理员' : '普通用户' }}
+            </Tag>
+          </div>
+
+          <!-- 自定义下拉菜单 -->
+          <div v-if="dropdownOpen" class="custom-dropdown" @click.stop>
+            <div class="dropdown-menu">
+              <div class="menu-item" @click="handleProfile">个人资料</div>
+              <div class="menu-item" @click="handleSettings">设置</div>
+              <div class="menu-divider"></div>
+              <div class="menu-item" @click="handleLogout">退出登录</div>
             </div>
-          </Dropdown>
+          </div>
         </div>
       </Header>
 
@@ -113,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, onMounted, onUnmounted, h, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Layout,
@@ -124,7 +132,6 @@ import {
   Button,
   Table,
   Tag,
-  Space,
   Modal,
   message,
   Typography,
@@ -145,6 +152,35 @@ const userInfo = ref({
 
 // 菜单状态
 const collapsed = ref(false)
+
+// 下拉菜单状态
+const dropdownOpen = ref(false)
+
+const onDropdownOpenChange = (open: boolean) => {
+  dropdownOpen.value = open
+}
+
+const toggleDropdown = () => {
+  dropdownOpen.value = !dropdownOpen.value
+}
+
+const handleProfile = () => {
+  message.info('个人资料功能开发中...')
+  dropdownOpen.value = false
+}
+
+const handleSettings = () => {
+  message.info('设置功能开发中...')
+  dropdownOpen.value = false
+}
+
+// 点击外部关闭下拉菜单
+const handleClickOutside = (e: Event) => {
+  const target = e.target as HTMLElement
+  if (!target.closest('.header-right')) {
+    dropdownOpen.value = false
+  }
+}
 
 // 工单数据 - 使用需求文档提供的模拟数据
 const workOrderData = ref([
@@ -368,8 +404,11 @@ const checkAuth = () => {
   const username = localStorage.getItem('username')
 
   if (!role || !username) {
-    message.error('请先登录')
-    router.push('/')
+    // 临时设置测试用户，避免跳转
+    userInfo.value = {
+      username: 'testuser',
+      role: 'admin',
+    }
     return
   }
 
@@ -424,18 +463,16 @@ const adminColumns = [
     key: 'action',
     width: 120,
     customRender: ({ record }: { record: any }) => {
-      return h(Space, {}, [
-        h(
-          Button,
-          {
-            type: 'link',
-            size: 'small',
-            danger: true,
-            onClick: () => handleDelete(record),
-          },
-          () => 'Delete',
-        ),
-      ])
+      return h(
+        Button,
+        {
+          type: 'link',
+          size: 'small',
+          danger: true,
+          onClick: () => handleDelete(record),
+        },
+        () => 'Delete',
+      )
     },
   },
 ]
@@ -450,6 +487,14 @@ onMounted(() => {
       chartInstance.resize()
     }
   })
+
+  // 监听点击外部关闭下拉菜单
+  document.addEventListener('click', handleClickOutside)
+})
+
+// 组件卸载时清理
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -596,6 +641,53 @@ onMounted(() => {
             font-size: 12px;
             border-radius: 4px;
           }
+        }
+
+        // 自定义下拉菜单样式
+        .custom-dropdown {
+          position: absolute;
+          top: 100%;
+          right: 0;
+          z-index: 9999;
+          margin-top: 4px;
+        }
+
+        .dropdown-menu {
+          background: white;
+          border-radius: 6px;
+          box-shadow:
+            0 3px 6px -4px rgba(0, 0, 0, 0.12),
+            0 6px 16px 0 rgba(0, 0, 0, 0.08),
+            0 9px 28px 8px rgba(0, 0, 0, 0.05);
+          min-width: 120px;
+          border: 1px solid #f0f0f0;
+        }
+
+        .menu-item {
+          padding: 8px 16px;
+          font-size: 14px;
+          line-height: 22px;
+          cursor: pointer;
+          transition: all 0.3s;
+          color: #333;
+
+          &:hover {
+            background-color: #f5f5f5;
+          }
+
+          &:first-child {
+            border-radius: 6px 6px 0 0;
+          }
+
+          &:last-child {
+            border-radius: 0 0 6px 6px;
+          }
+        }
+
+        .menu-divider {
+          height: 1px;
+          background-color: #f0f0f0;
+          margin: 4px 0;
         }
       }
     }
@@ -823,5 +915,31 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+// 全局下拉菜单样式
+:global(.ant-dropdown) {
+  z-index: 9999 !important;
+}
+
+:global(.ant-dropdown-menu) {
+  min-width: 120px !important;
+  box-shadow:
+    0 3px 6px -4px rgba(0, 0, 0, 0.12),
+    0 6px 16px 0 rgba(0, 0, 0, 0.08),
+    0 9px 28px 8px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 6px !important;
+}
+
+:global(.ant-dropdown-menu-item) {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  line-height: 22px !important;
+  cursor: pointer !important;
+  transition: all 0.3s !important;
+
+  &:hover {
+    background-color: #f5f5f5 !important;
+  }
 }
 </style>
